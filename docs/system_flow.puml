@@ -1,18 +1,9 @@
 @startuml Tennis Machine System Flow
 
-skinparam linetype ortho
-skinparam backgroundColor #FEFEFE
-skinparam activity {
-  BackgroundColor<< DataModule >> LightBlue
-  BackgroundColor<< TrainingModule >> LightGreen
-  BackgroundColor<< PredictionModule >> LightYellow
-  BackgroundColor<< AnalysisModule >> LightCoral
-}
-
 title Tennis Machine - System Flow Diagram
 
 |Data Extraction Module|
-start<< DataModule >>
+start
 :Daily Data Update (6:00 AM);
 :Fetch new matches from Kaggle;
 :Load new matches into database;
@@ -28,7 +19,6 @@ start<< DataModule >>
 
 |Training Module|
 :Weekly Training (Sunday 2:00 AM);
-<< TrainingModule >>
 :Load training configuration
 (80/20 split, random seed, etc.);
 :Load feature configuration
@@ -71,9 +61,8 @@ end fork
 
 |Prediction Module|
 :Daily Predictions (8:00 AM);
-<< PredictionModule >>
 :Load active model from DB;
-:Fetch today's matches
+:Scrape today's matches from internet
 (ATP500+ tournaments only);
 
 if (Matches found?) then (yes)
@@ -93,7 +82,6 @@ endif
 
 |Error Analysis Module|
 :Daily Error Analysis (10:00 PM);
-<< AnalysisModule >>
 :Fetch yesterday's match results;
 :Compare with predictions;
 

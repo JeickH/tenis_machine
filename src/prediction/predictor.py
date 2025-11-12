@@ -4,6 +4,7 @@ from datetime import datetime
 from config.database import get_db
 from src.models.model_factory import ModelFactory
 from src.models.feature_engineer import FeatureEngineer
+from src.prediction.match_fetcher import MatchFetcher
 from src.utils.date_utils import get_today
 from src.utils.logger import get_logger
 
@@ -14,6 +15,7 @@ class Predictor:
         self.db = get_db()
         self.active_model = None
         self.feature_engineer = None
+        self.match_fetcher = MatchFetcher()
 
     def load_active_model(self):
         query = """
@@ -65,11 +67,21 @@ class Predictor:
                 p1.current_rank as rank_1,
                 p2.current_rank as rank_2,
                 p1.current_points as pts_1,
-                p2.current_points as pts_2
+                p2.current_points as pts_2,
+                ps1.sports_mood_score as player_1_sports_mood,
+                ps1.personal_mood_score as player_1_personal_mood,
+                ps2.sports_mood_score as player_2_sports_mood,
+                ps2.personal_mood_score as player_2_personal_mood,
+                sh1.win_rate as player_1_surface_win_rate,
+                sh2.win_rate as player_2_surface_win_rate
             FROM matches m
             JOIN tournaments t ON m.tournament_id = t.id
             JOIN players p1 ON m.player_1_id = p1.id
             JOIN players p2 ON m.player_2_id = p2.id
+            LEFT JOIN player_stats ps1 ON m.player_1_id = ps1.player_id
+            LEFT JOIN player_stats ps2 ON m.player_2_id = ps2.player_id
+            LEFT JOIN surface_history sh1 ON m.player_1_id = sh1.player_id AND m.surface_id = sh1.surface_id
+            LEFT JOIN surface_history sh2 ON m.player_2_id = sh2.player_id AND m.surface_id = sh2.surface_id
             WHERE m.date = %s
             AND m.winner_id IS NULL
             AND t.series = ANY(%s)
@@ -78,10 +90,23 @@ class Predictor:
         matches = self.db.execute_query(query, (today, min_series), fetch=True)
         logger.info(f"Found {len(matches)} matches for today ({today})")
 
-        return pd.DataFrame(matches) if matches else None
+        if not matches:
+            return None
+
+        df = pd.DataFrame(matches)
+
+        decimal_cols = ['player_1_sports_mood', 'player_2_sports_mood',
+                       'player_1_personal_mood', 'player_2_personal_mood',
+                       'player_1_surface_win_rate', 'player_2_surface_win_rate']
+
+        for col in decimal_cols:
+            if col in df.columns:
+                df[col] = df[col].apply(lambda x: float(x) if x is not None else None)
+
+        return df
 
     def prepare_match_features(self, match_df):
-        features_df = self.feature_engineer.engineer_features(match_df)
+        features_df = self.feature_engineer.engineer_features(match_df, for_prediction=True)
         features_df = self.feature_engineer.apply_weights(features_df)
 
         feature_cols = self.feature_engineer.get_feature_columns()

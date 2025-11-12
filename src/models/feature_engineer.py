@@ -113,7 +113,7 @@ class FeatureEngineer:
             return result[0]['wins'] / result[0]['total']
         return 0.0
 
-    def engineer_features(self, df):
+    def engineer_features(self, df, for_prediction=False):
         logger.info("Engineering features")
 
         df['rank_difference'] = df['rank_1'] - df['rank_2']
@@ -162,9 +162,10 @@ class FeatureEngineer:
         df['player_1_points'] = df['pts_1'].fillna(0)
         df['player_2_points'] = df['pts_2'].fillna(0)
 
-        df['target_winner'] = (df['winner_id'] == df['player_1_id']).astype(int)
-        df['target_sets'] = df['total_sets'].fillna(3)
-        df['target_games'] = df['total_games'].fillna(20)
+        if not for_prediction:
+            df['target_winner'] = (df['winner_id'] == df['player_1_id']).astype(int)
+            df['target_sets'] = df['total_sets'].fillna(3)
+            df['target_games'] = df['total_games'].fillna(20)
 
         logger.info(f"Feature engineering completed. Shape: {df.shape}")
         return df
