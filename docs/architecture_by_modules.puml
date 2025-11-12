@@ -1,0 +1,312 @@
+@startuml Tennis Machine - Architecture by Modules
+
+skinparam linetype ortho
+skinparam packageStyle rectangle
+
+skinparam class {
+  BackgroundColor<< DataModule >> #E3F2FD
+  BackgroundColor<< TrainingModule >> #E8F5E9
+  BackgroundColor<< PredictionModule >> #FFF9C4
+  BackgroundColor<< AnalysisModule >> #FFEBEE
+  BackgroundColor<< Component >> #F5F5F5
+  BorderColor<< Component >> #424242
+}
+
+title Tennis Machine - Architecture by Modules
+
+package "MODULE 1: DATA EXTRACTION\n(src/data/)" #E3F2FD {
+
+  package "Database Tables - Raw Data" {
+    class matches << DataModule >> {
+      + id, tournament_id, date
+      + player_1_id, player_2_id
+      + winner_id, score
+      + rank_1, rank_2, pts_1, pts_2
+      + total_sets, total_games
+    }
+
+    class players << DataModule >> {
+      + id, name, country
+      + current_rank, current_points
+    }
+
+    class tournaments << DataModule >> {
+      + id, name, series
+    }
+
+    class surfaces << DataModule >> {
+      + id, name (Hard/Clay/Grass)
+    }
+  }
+
+  package "Database Tables - Calculated Stats" {
+    class player_stats << DataModule >> {
+      + player_id [FK]
+      + sports_mood_score
+      + last_10_matches_wins/losses
+      + personal_mood_score
+      + total_career_wins/losses
+    }
+
+    class surface_history << DataModule >> {
+      + player_id [FK]
+      + surface_id [FK]
+      + last_10_wins, last_10_losses
+      + win_rate, total_wins
+    }
+
+    class external_predictions << DataModule >> {
+      + match_date, tournament_id
+      + player_1_id, player_2_id
+      + predicted_winner_id
+      + confidence_score
+    }
+  }
+
+  package "Python Components" {
+    class "KaggleFetcher\n(kaggle_fetcher.py)" as KaggleFetcher << Component >> {
+      + get_latest_data()
+      + get_new_matches_since_date()
+    }
+
+    class "MatchLoader\n(match_loader.py)" as MatchLoader << Component >> {
+      + load_from_csv()
+      + calculate_sets_and_games()
+    }
+
+    class "SportsMoodCalculator\n(sports_mood_calculator.py)" as SportsMoodCalc << Component >> {
+      + calculate_sports_mood()
+      + update_all_active_players()
+    }
+
+    class "SurfaceHistoryCalculator\n(surface_history_calculator.py)" as SurfaceHistCalc << Component >> {
+      + calculate_surface_history()
+      + update_all_player_surfaces()
+    }
+  }
+
+  note right of KaggleFetcher
+    Downloads ATP match data
+    from Kaggle daily
+  end note
+
+  note right of SportsMoodCalc
+    Calculates mood based on:
+    - Last 10 match results
+    - Difficulty (easy win/hard win)
+    - Score: -10 to +10
+  end note
+}
+
+package "MODULE 2: MODEL TRAINING\n(src/models/)" #E8F5E9 {
+
+  package "Python Components - Feature Engineering" {
+    class "FeatureEngineer\n(feature_engineer.py)" as FeatureEngineer << Component >> {
+      + extract_features_from_db()
+      + engineer_features()
+      + apply_weights()
+      --
+      **GENERATES TRAINING DATA**
+      Reads from multiple tables:
+      - matches + player_stats
+      - surface_history + tournaments
+      --
+      Calculates 25+ features:
+      - rank_difference
+      - sports_mood_difference
+      - surface_advantage
+      - h2h stats
+      - recent form
+      --
+      Returns: pandas DataFrame
+      with X (features) and y (targets)
+    }
+
+    class "Training Dataset\n(IN MEMORY)" as TrainingDataset << Component >> {
+      **pandas DataFrame**
+      --
+      Features (X):
+      - player_1_rank, player_2_rank
+      - sports_mood_difference
+      - surface_win_rates
+      - h2h_total_matches
+      - ... (25+ total)
+      --
+      Targets (y):
+      - target_winner (0/1)
+      - target_sets (2/3/5)
+      - target_games (int)
+      --
+      Rows: ~66,000 matches
+    }
+
+    class "ModelTrainer\n(trainer.py)" as ModelTrainer << Component >> {
+      + prepare_data()
+      + split_data() -> 80/20
+      + train_model()
+      + evaluate_model()
+      + save_model_to_db()
+    }
+
+    class "HyperparameterTuner\n(hyperparameter_tuner.py)" as HPTuner << Component >> {
+      + tune()
+      Uses RandomizedSearchCV
+      for optimal parameters
+    }
+
+    class "XGBoost/LightGBM\n(implementations/)" as MLModels << Component >> {
+      + train()
+      + predict()
+      + save_model()
+    }
+  }
+
+  package "Database Tables - Training Config" {
+    class feature_configurations << TrainingModule >> {
+      + name, configuration (JSONB)
+      + Feature weights for each field
+    }
+
+    class training_configurations << TrainingModule >> {
+      + train_split_ratio (0.8)
+      + validation_split_ratio (0.2)
+      + random_seed, use_error_feedback
+    }
+
+    class training_runs << TrainingModule >> {
+      + model_id, start_time, end_time
+      + train_samples, validation_samples
+      + training_metrics, validation_metrics
+      + best_hyperparameters, status
+    }
+
+    class models << TrainingModule >> {
+      + id, model_type, model_version
+      + validation_accuracy
+      + model_file_path (.pkl)
+      + is_active (best model)
+    }
+  }
+
+  note right of FeatureEngineer
+    **RESPONSIBLE FOR TRAINING DATA**
+
+    This component:
+    1. Queries DB (joins multiple tables)
+    2. Calculates derived features
+    3. Applies feature weights
+    4. Generates DataFrame in memory
+
+    NO table stores this -
+    it's dynamically generated!
+  end note
+}
+
+package "MODULE 3: PREDICTION\n(src/prediction/)" #FFF9C4 {
+
+  package "Python Components" {
+    class "Predictor\n(predictor.py)" as Predictor << Component >> {
+      + load_active_model()
+      + get_todays_matches()
+      + predict_match()
+      + save_prediction()
+    }
+  }
+
+  package "Database Tables" {
+    class predictions << PredictionModule >> {
+      + model_id [FK]
+      + match_date, tournament_id
+      + player_1_id, player_2_id
+      + predicted_winner_id
+      + predicted_total_sets/games
+      + confidence_score
+      + actual_winner_id (null initially)
+    }
+  }
+
+  note right of Predictor
+    Uses FeatureEngineer
+    to prepare match features
+    before prediction
+  end note
+}
+
+package "MODULE 4: ERROR ANALYSIS\n(src/analysis/)" #FFEBEE {
+
+  package "Python Components" {
+    class "ErrorAnalyzer\n(error_analyzer.py)" as ErrorAnalyzer << Component >> {
+      + get_yesterdays_results()
+      + analyze_prediction_error()
+      + aggregate_metrics()
+      + save_error_analysis()
+    }
+  }
+
+  package "Database Tables" {
+    class prediction_errors << AnalysisModule >> {
+      + prediction_id [FK]
+      + winner_correct (bool)
+      + sets_error, games_error
+      + player_1_rank, player_2_rank
+      + both_top_10, both_top_50, etc.
+    }
+
+    class error_metrics << AnalysisModule >> {
+      + model_id [FK]
+      + period (day/week/15days/month)
+      + accuracy, total_predictions
+      + avg_sets_error, avg_games_error
+      + accuracy_top_10, accuracy_top_50
+    }
+  }
+}
+
+' ============================================
+' RELATIONSHIPS BETWEEN MODULES
+' ============================================
+
+' Module 1 -> Module 2: Feature Engineering reads from Data tables
+matches ..> FeatureEngineer : reads
+player_stats ..> FeatureEngineer : reads
+surface_history ..> FeatureEngineer : reads
+tournaments ..> FeatureEngineer : reads
+external_predictions ..> FeatureEngineer : reads
+
+' Module 1: Components update tables
+KaggleFetcher ..> MatchLoader
+MatchLoader ..> matches : writes
+SportsMoodCalc ..> player_stats : writes
+SurfaceHistCalc ..> surface_history : writes
+
+' Module 2: Feature Engineering -> Training
+FeatureEngineer ..> TrainingDataset : generates\n(IN MEMORY)
+TrainingDataset ..> ModelTrainer : feeds data
+feature_configurations ..> FeatureEngineer : configures weights
+training_configurations ..> ModelTrainer : configures split
+
+' Module 2: Training process
+ModelTrainer ..> HPTuner : uses
+ModelTrainer ..> MLModels : trains
+MLModels ..> models : saves to
+ModelTrainer ..> training_runs : logs to
+
+' Module 2 -> Module 3: Predictor uses trained model
+models ..> Predictor : loads active model
+FeatureEngineer ..> Predictor : prepares features
+
+' Module 3: Prediction writes
+Predictor ..> predictions : saves
+
+' Module 3 -> Module 4: Error analysis reads predictions
+predictions ..> ErrorAnalyzer : reads
+matches ..> ErrorAnalyzer : gets actual results
+
+' Module 4: Error analysis writes
+ErrorAnalyzer ..> prediction_errors : writes
+ErrorAnalyzer ..> error_metrics : aggregates
+
+' Module 4 -> Module 2: Error feedback (optional)
+error_metrics ..> FeatureEngineer : error feedback\n(if enabled)
+
+@enduml
