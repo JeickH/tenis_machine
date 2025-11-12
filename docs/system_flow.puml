@@ -1,0 +1,128 @@
+@startuml Tennis Machine System Flow
+
+skinparam linetype ortho
+skinparam backgroundColor #FEFEFE
+skinparam activity {
+  BackgroundColor<< DataModule >> LightBlue
+  BackgroundColor<< TrainingModule >> LightGreen
+  BackgroundColor<< PredictionModule >> LightYellow
+  BackgroundColor<< AnalysisModule >> LightCoral
+}
+
+title Tennis Machine - System Flow Diagram
+
+|Data Extraction Module|
+start<< DataModule >>
+:Daily Data Update (6:00 AM);
+:Fetch new matches from Kaggle;
+:Load new matches into database;
+:Calculate Sports Mood
+(last 10 matches performance);
+:Calculate Surface History
+(win rate by surface type);
+:Fetch Player News
+(sentiment analysis - stub);
+:Scrape External Predictions
+(from prediction websites - stub);
+:Update Player Stats in DB;
+
+|Training Module|
+:Weekly Training (Sunday 2:00 AM);
+<< TrainingModule >>
+:Load training configuration
+(80/20 split, random seed, etc.);
+:Load feature configuration
+(feature weights);
+:Extract features from database;
+note right
+  Features include:
+  - Player rankings & points
+  - Sports mood scores
+  - Personal mood scores
+  - Surface win rates
+  - Head-to-head stats
+  - Recent form (last 5 matches)
+  - Tournament info
+  - External predictions
+end note
+:Engineer features
+(calculate differences, encodings);
+:Apply feature weights;
+:Split data (80% train, 20% validation);
+
+fork
+  :Train XGBoost Model;
+  :Hyperparameter tuning
+  (RandomizedSearchCV);
+  :Evaluate on validation set;
+fork again
+  :Train additional models
+  (LightGBM - optional);
+  :Hyperparameter tuning;
+  :Evaluate on validation set;
+end fork
+
+:Compare all models;
+:Select best model
+(highest validation accuracy);
+:Save model to file system;
+:Save model metadata to DB;
+:Mark best model as active;
+
+|Prediction Module|
+:Daily Predictions (8:00 AM);
+<< PredictionModule >>
+:Load active model from DB;
+:Fetch today's matches
+(ATP500+ tournaments only);
+
+if (Matches found?) then (yes)
+  repeat
+    :Prepare match features;
+    :Apply feature weights;
+    :Predict winner using model;
+    :Predict total sets (default: 3);
+    :Predict total games (default: 20);
+    :Calculate confidence score;
+    :Save prediction to database;
+  repeat while (More matches?)
+  :Display predictions summary;
+else (no)
+  :No matches for today;
+endif
+
+|Error Analysis Module|
+:Daily Error Analysis (10:00 PM);
+<< AnalysisModule >>
+:Fetch yesterday's match results;
+:Compare with predictions;
+
+if (Results available?) then (yes)
+  repeat
+    :Calculate prediction errors
+    (winner, sets, games);
+    :Categorize by player rankings
+    (top 10, 20, 50, 100);
+    :Save error data to DB;
+  repeat while (More results?)
+
+  :Aggregate metrics by period;
+  fork
+    :Calculate last day metrics;
+  fork again
+    :Calculate last week metrics;
+  fork again
+    :Calculate last 15 days metrics;
+  fork again
+    :Calculate last month metrics;
+  end fork
+
+  :Save aggregated metrics to DB;
+  :Display accuracy summary;
+else (no)
+  :No results to analyze;
+endif
+
+stop
+
+@enduml

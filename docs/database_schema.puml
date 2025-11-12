@@ -1,0 +1,336 @@
+@startuml Tennis Machine Database Schema
+
+skinparam linetype ortho
+skinparam class {
+  BackgroundColor<< Reference >> LightBlue
+  BackgroundColor<< Main >> LightGreen
+  BackgroundColor<< Model >> LightYellow
+  BackgroundColor<< Analysis >> LightCoral
+}
+
+title Tennis Machine - Database Schema
+
+package "Reference Tables" {
+  class players << Reference >> {
+    + id: SERIAL [PK]
+    --
+    name: VARCHAR [UNIQUE]
+    first_name: VARCHAR
+    last_name: VARCHAR
+    country: VARCHAR
+    birth_date: DATE
+    current_rank: INTEGER
+    current_points: INTEGER
+    highest_rank: INTEGER
+    highest_rank_date: DATE
+    is_active: BOOLEAN
+  }
+
+  class tournaments << Reference >> {
+    + id: SERIAL [PK]
+    --
+    name: VARCHAR [UNIQUE]
+    series: VARCHAR
+    category: VARCHAR
+    location: VARCHAR
+    country: VARCHAR
+    is_active: BOOLEAN
+  }
+
+  class surfaces << Reference >> {
+    + id: SERIAL [PK]
+    --
+    name: VARCHAR [UNIQUE]
+    description: TEXT
+  }
+
+  class court_types << Reference >> {
+    + id: SERIAL [PK]
+    --
+    name: VARCHAR [UNIQUE]
+    description: TEXT
+  }
+
+  class rounds << Reference >> {
+    + id: SERIAL [PK]
+    --
+    name: VARCHAR [UNIQUE]
+    order_number: INTEGER
+    description: TEXT
+  }
+}
+
+package "Main Tables" {
+  class matches << Main >> {
+    + id: SERIAL [PK]
+    --
+    # tournament_id: INTEGER [FK]
+    date: DATE
+    # round_id: INTEGER [FK]
+    # court_type_id: INTEGER [FK]
+    # surface_id: INTEGER [FK]
+    best_of: INTEGER
+    # player_1_id: INTEGER [FK]
+    # player_2_id: INTEGER [FK]
+    # winner_id: INTEGER [FK]
+    rank_1: INTEGER
+    rank_2: INTEGER
+    pts_1: INTEGER
+    pts_2: INTEGER
+    odd_1: DECIMAL
+    odd_2: DECIMAL
+    score: VARCHAR
+    total_sets: INTEGER
+    total_games: INTEGER
+  }
+
+  class player_stats << Main >> {
+    + id: SERIAL [PK]
+    --
+    # player_id: INTEGER [FK] [UNIQUE]
+    sports_mood_score: DECIMAL
+    last_10_matches_wins: INTEGER
+    last_10_matches_losses: INTEGER
+    last_10_matches_details: JSONB
+    personal_mood_score: DECIMAL
+    last_mood_update: TIMESTAMP
+    total_career_wins: INTEGER
+    total_career_losses: INTEGER
+  }
+
+  class surface_history << Main >> {
+    + id: SERIAL [PK]
+    --
+    # player_id: INTEGER [FK]
+    # surface_id: INTEGER [FK]
+    last_10_wins: INTEGER
+    last_10_losses: INTEGER
+    win_rate: DECIMAL
+    total_wins: INTEGER
+    total_losses: INTEGER
+  }
+
+  class player_news << Main >> {
+    + id: SERIAL [PK]
+    --
+    # player_id: INTEGER [FK]
+    news_date: DATE
+    news_summary: TEXT
+    news_category: VARCHAR
+    sentiment_score: DECIMAL
+    source_url: TEXT
+  }
+
+  class external_predictions << Main >> {
+    + id: SERIAL [PK]
+    --
+    match_date: DATE
+    # tournament_id: INTEGER [FK]
+    # player_1_id: INTEGER [FK]
+    # player_2_id: INTEGER [FK]
+    source_name: VARCHAR
+    source_url: TEXT
+    # predicted_winner_id: INTEGER [FK]
+    confidence_score: DECIMAL
+  }
+}
+
+package "Model & Feature Tables" {
+  class features << Model >> {
+    + id: SERIAL [PK]
+    --
+    name: VARCHAR [UNIQUE]
+    description: TEXT
+    feature_type: VARCHAR
+    data_source: VARCHAR
+    is_active: BOOLEAN
+  }
+
+  class feature_configurations << Model >> {
+    + id: SERIAL [PK]
+    --
+    name: VARCHAR [UNIQUE]
+    description: TEXT
+    configuration: JSONB
+    is_default: BOOLEAN
+    created_by: VARCHAR
+  }
+
+  class training_configurations << Model >> {
+    + id: SERIAL [PK]
+    --
+    name: VARCHAR [UNIQUE]
+    description: TEXT
+    train_split_ratio: DECIMAL
+    validation_split_ratio: DECIMAL
+    test_split_ratio: DECIMAL
+    random_seed: INTEGER
+    cross_validation_folds: INTEGER
+    use_error_feedback: BOOLEAN
+    # feature_configuration_id: INTEGER [FK]
+    is_default: BOOLEAN
+  }
+
+  class models << Model >> {
+    + id: SERIAL [PK]
+    --
+    model_name: VARCHAR
+    model_type: VARCHAR
+    model_version: VARCHAR
+    # training_run_id: INTEGER [FK]
+    # training_configuration_id: INTEGER [FK]
+    # feature_configuration_id: INTEGER [FK]
+    hyperparameters: JSONB
+    training_date: TIMESTAMP
+    training_samples_count: INTEGER
+    validation_samples_count: INTEGER
+    validation_accuracy: DECIMAL
+    validation_metrics: JSONB
+    model_file_path: VARCHAR
+    weights_file_path: VARCHAR
+    feature_importance: JSONB
+    is_active: BOOLEAN
+    use_error_feedback: BOOLEAN
+  }
+
+  class training_runs << Model >> {
+    + id: SERIAL [PK]
+    --
+    # model_id: INTEGER [FK]
+    # training_configuration_id: INTEGER [FK]
+    # feature_configuration_id: INTEGER [FK]
+    start_time: TIMESTAMP
+    end_time: TIMESTAMP
+    status: VARCHAR
+    train_samples: INTEGER
+    validation_samples: INTEGER
+    training_metrics: JSONB
+    validation_metrics: JSONB
+    best_hyperparameters: JSONB
+    feature_importance: JSONB
+    error_log: TEXT
+  }
+
+  class feature_weights << Model >> {
+    + id: SERIAL [PK]
+    --
+    # model_id: INTEGER [FK]
+    # feature_id: INTEGER [FK]
+    weight: DECIMAL
+    is_enabled: BOOLEAN
+    importance_score: DECIMAL
+  }
+}
+
+package "Prediction & Analysis Tables" {
+  class predictions << Analysis >> {
+    + id: SERIAL [PK]
+    --
+    # model_id: INTEGER [FK]
+    match_date: DATE
+    # tournament_id: INTEGER [FK]
+    # player_1_id: INTEGER [FK]
+    # player_2_id: INTEGER [FK]
+    # predicted_winner_id: INTEGER [FK]
+    predicted_total_sets: INTEGER
+    predicted_total_games: INTEGER
+    winner_probability: DECIMAL
+    confidence_score: DECIMAL
+    prediction_timestamp: TIMESTAMP
+    # actual_winner_id: INTEGER [FK]
+    actual_total_sets: INTEGER
+    actual_total_games: INTEGER
+    # match_id: INTEGER [FK]
+  }
+
+  class prediction_errors << Analysis >> {
+    + id: SERIAL [PK]
+    --
+    # prediction_id: INTEGER [FK] [UNIQUE]
+    # model_id: INTEGER [FK]
+    # match_id: INTEGER [FK]
+    match_date: DATE
+    # player_1_id: INTEGER [FK]
+    # player_2_id: INTEGER [FK]
+    winner_correct: BOOLEAN
+    sets_error: INTEGER
+    games_error: INTEGER
+    player_1_rank: INTEGER
+    player_2_rank: INTEGER
+    both_top_10: BOOLEAN
+    both_top_20: BOOLEAN
+    both_top_50: BOOLEAN
+    both_top_100: BOOLEAN
+    any_top_10: BOOLEAN
+    any_top_20: BOOLEAN
+    any_top_50: BOOLEAN
+    any_top_100: BOOLEAN
+  }
+
+  class error_metrics << Analysis >> {
+    + id: SERIAL [PK]
+    --
+    # model_id: INTEGER [FK]
+    period: VARCHAR
+    start_date: DATE
+    end_date: DATE
+    total_predictions: INTEGER
+    correct_winners: INTEGER
+    accuracy: DECIMAL
+    avg_sets_error: DECIMAL
+    avg_games_error: DECIMAL
+    accuracy_top_10: DECIMAL
+    accuracy_top_20: DECIMAL
+    accuracy_top_50: DECIMAL
+    accuracy_top_100: DECIMAL
+    accuracy_both_top_10: DECIMAL
+    accuracy_both_top_20: DECIMAL
+    accuracy_both_top_50: DECIMAL
+    accuracy_both_top_100: DECIMAL
+  }
+}
+
+' Relationships
+matches "1" --> "1" tournaments
+matches "1" --> "1" rounds
+matches "1" --> "1" court_types
+matches "1" --> "1" surfaces
+matches "1" --> "1" players : player_1
+matches "1" --> "1" players : player_2
+matches "1" --> "1" players : winner
+
+player_stats "1" --> "1" players
+surface_history "1" --> "1" players
+surface_history "1" --> "1" surfaces
+player_news "1" --> "1" players
+
+external_predictions "1" --> "1" tournaments
+external_predictions "1" --> "1" players : player_1
+external_predictions "1" --> "1" players : player_2
+external_predictions "1" --> "1" players : predicted_winner
+
+training_configurations "1" --> "1" feature_configurations
+models "1" --> "1" training_runs
+models "1" --> "1" training_configurations
+models "1" --> "1" feature_configurations
+
+feature_weights "1" --> "1" models
+feature_weights "1" --> "1" features
+
+predictions "1" --> "1" models
+predictions "1" --> "1" tournaments
+predictions "1" --> "1" players : player_1
+predictions "1" --> "1" players : player_2
+predictions "1" --> "1" players : predicted_winner
+predictions "1" --> "1" players : actual_winner
+predictions "1" --> "1" matches
+
+prediction_errors "1" --> "1" predictions
+prediction_errors "1" --> "1" models
+prediction_errors "1" --> "1" matches
+prediction_errors "1" --> "1" players : player_1
+prediction_errors "1" --> "1" players : player_2
+
+error_metrics "1" --> "1" models
+
+@enduml
