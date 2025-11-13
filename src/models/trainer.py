@@ -81,7 +81,7 @@ class ModelTrainer:
         model = ModelFactory.create_model(model_type)
 
         if tune_hyperparameters:
-            tuner = HyperparameterTuner(n_iter=5, cv=3)
+            tuner = HyperparameterTuner(n_iter=500, cv=3)
             best_params, best_score = tuner.tune(model, X_train, y_train)
             model.train(X_train, y_train, best_params)
         else:

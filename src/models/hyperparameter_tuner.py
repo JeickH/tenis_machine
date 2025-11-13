@@ -1,4 +1,5 @@
 from sklearn.model_selection import RandomizedSearchCV
+import xgboost as xgb
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -15,8 +16,12 @@ class HyperparameterTuner:
         search_space = model_instance.get_hyperparameter_search_space()
         base_params = model_instance.get_default_hyperparameters()
 
-        temp_model_class = type(model_instance.model)
-        temp_model = temp_model_class(**base_params)
+        if model_instance.model_name == "XGBoost":
+            temp_model = xgb.XGBClassifier(**base_params)
+        else:
+            model_instance.train(X_train, y_train, base_params)
+            temp_model_class = type(model_instance.model)
+            temp_model = temp_model_class(**base_params)
 
         search = RandomizedSearchCV(
             estimator=temp_model,

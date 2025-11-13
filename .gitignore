@@ -1,43 +1,55 @@
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
 venv/
 env/
 ENV/
+*.egg-info/
+dist/
+build/
 
-*.log
-logs/*.log
-
-config/db_credentials.json
-
-data/raw/*.csv
-data/processed/*
-data/models/*.pkl
-data/models/*.h5
-data/models/*.pt
-
-.DS_Store
+# IDEs
 .vscode/
 .idea/
-
 *.swp
 *.swo
 *~
+
+# Database
+*.db
+*.sqlite
+*.sql.backup
+
+# Logs
+logs/*.log
+*.log
+
+# Models (archivos grandes)
+data/models/*.pkl
+data/models/*.joblib
+data/raw/*.csv
+data/processed/*.csv
+
+# Reports (se generan diariamente)
+reports/*.html
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+
+# Credentials (IMPORTANTE: no subir credenciales)
+config/db_credentials.json
+*.key
+*.pem
+
+# Jupyter
+.ipynb_checkpoints/
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/

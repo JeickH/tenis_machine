@@ -175,6 +175,7 @@ class FeatureEngineer:
 
         for col in feature_cols:
             if col in features_df.columns and col in self.feature_weights:
+                features_df[col] = features_df[col].apply(lambda x: float(x) if x is not None else 0.0)
                 features_df[col] = features_df[col] * self.feature_weights[col]
 
         return features_df

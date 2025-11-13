@@ -168,6 +168,25 @@ CREATE INDEX idx_external_predictions_date ON external_predictions(match_date);
 CREATE INDEX idx_external_predictions_players ON external_predictions(player_1_id, player_2_id);
 CREATE INDEX idx_external_predictions_source ON external_predictions(source_name);
 
+-- Betting Odds
+
+CREATE TABLE IF NOT EXISTS betting_odds (
+    id SERIAL PRIMARY KEY,
+    match_date DATE NOT NULL,
+    tournament_id INTEGER REFERENCES tournaments(id),
+    player_1_id INTEGER REFERENCES players(id) NOT NULL,
+    player_2_id INTEGER REFERENCES players(id) NOT NULL,
+    bookmaker_name VARCHAR(255) NOT NULL,
+    player_1_odds DECIMAL(6, 2),
+    player_2_odds DECIMAL(6, 2),
+    fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_match_bookmaker UNIQUE (match_date, player_1_id, player_2_id, bookmaker_name)
+);
+
+CREATE INDEX idx_betting_odds_date ON betting_odds(match_date);
+CREATE INDEX idx_betting_odds_players ON betting_odds(player_1_id, player_2_id);
+CREATE INDEX idx_betting_odds_bookmaker ON betting_odds(bookmaker_name);
+
 -- Feature Management
 
 CREATE TABLE IF NOT EXISTS features (

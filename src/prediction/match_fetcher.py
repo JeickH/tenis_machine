@@ -168,3 +168,60 @@ class MatchFetcher:
 
         logger.info(f"Created {saved} sample match(es) for testing")
         return saved
+
+    def create_todays_real_matches(self):
+        from src.data.sports_mood_calculator import SportsMoodCalculator
+        from src.data.surface_history_calculator import SurfaceHistoryCalculator
+
+        today = datetime.now().date()
+
+        real_matches = [
+            {
+                'player_1': 'Alcaraz C.',
+                'player_2': 'Musetti L.',
+                'tournament': 'ATP Finals',
+                'series': 'Grand Slam',
+                'surface': 'Hard',
+                'court_type': 'Indoor',
+                'round': 'Round Robin',
+                'date': today,
+                'rank_1': 3,
+                'rank_2': 17
+            },
+            {
+                'player_1': 'Fritz T.',
+                'player_2': 'De Minaur A.',
+                'tournament': 'ATP Finals',
+                'series': 'Grand Slam',
+                'surface': 'Hard',
+                'court_type': 'Indoor',
+                'round': 'Round Robin',
+                'date': today,
+                'rank_1': 5,
+                'rank_2': 9
+            }
+        ]
+
+        saved = self.save_scheduled_matches(real_matches)
+
+        if saved > 0:
+            sports_mood_calc = SportsMoodCalculator()
+            surface_calc = SurfaceHistoryCalculator()
+
+            for match in real_matches:
+                player_1_id = get_or_create_player(match['player_1'])
+                player_2_id = get_or_create_player(match['player_2'])
+
+                logger.info(f"Calculating stats for {match['player_1']} and {match['player_2']}...")
+
+                sports_mood_calc.update_player_sports_mood(player_1_id)
+                sports_mood_calc.update_player_sports_mood(player_2_id)
+
+                surface_id = self._get_surface_id(match['surface'])
+                surface_calc.update_player_surface_history(player_1_id, surface_id)
+                surface_calc.update_player_surface_history(player_2_id, surface_id)
+
+            logger.info("Stats calculated for all players")
+
+        logger.info(f"Created {saved} real match(es) for today")
+        return saved
